@@ -53,7 +53,12 @@ def run_baseline_benchmark():
             "ig_sa_feasible": ig_result["feasible"],
             "initial_runtime_sec": initial_runtime,
             "ig_sa_runtime_sec": ig_runtime,
-            "battery_capacity": instance.battery_capacity
+            "battery_capacity": instance.battery_capacity,
+            "initial_penalized_objective": initial_result["penalized_objective"],
+            "ig_sa_penalized_objective": ig_result["penalized_objective"],
+            "initial_battery_violation": initial_result["total_battery_violation"],
+            "ig_sa_battery_violation": ig_result["total_battery_violation"],
+            "alpha": ig_result["alpha"]
         })
 
     output_path = Path("results/baseline_comparison.csv")

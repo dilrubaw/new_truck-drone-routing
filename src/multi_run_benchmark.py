@@ -49,9 +49,18 @@ def run_multi_run_benchmark(runs_per_instance=5):
                 "instance": instance.name,
                 "node_count": len(instance.nodes),
                 "run": run,
+
                 "makespan": best_result["makespan"],
+                "penalized_objective": best_result["penalized_objective"],
+
                 "feasible": best_result["feasible"],
+
+                "battery_violation": best_result["total_battery_violation"],
+
                 "runtime_sec": runtime,
+
+                "alpha": best_result["alpha"],
+
                 "battery_capacity": instance.battery_capacity
             })
 
@@ -59,16 +68,21 @@ def run_multi_run_benchmark(runs_per_instance=5):
             "instance": instance.name,
             "node_count": len(instance.nodes),
             "runs": runs_per_instance,
+
             "best_makespan": min(run_makespans),
             "worst_makespan": max(run_makespans),
             "average_makespan": sum(run_makespans) / len(run_makespans),
+
             "std_makespan": pd.Series(run_makespans).std(),
+
             "average_runtime_sec": sum(run_runtimes) / len(run_runtimes),
             "best_runtime_sec": min(run_runtimes),
             "worst_runtime_sec": max(run_runtimes),
+
+            "alpha": instance.drone_speed / instance.truck_speed,
+
             "battery_capacity": instance.battery_capacity
         })
-
     summary_path = Path("results/multi_run_summary.csv")
     detailed_path = Path("results/multi_run_detailed.csv")
 
