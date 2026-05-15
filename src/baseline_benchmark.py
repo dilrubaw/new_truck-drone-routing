@@ -39,8 +39,8 @@ def run_baseline_benchmark():
         ig_runtime = time.time() - start
 
         improvement = (
-            (initial_result["makespan"] - ig_result["makespan"])
-            / initial_result["makespan"]
+            (initial_result["penalized_objective"] - ig_result["penalized_objective"])
+            / initial_result["penalized_objective"]
         ) * 100
 
         results.append({

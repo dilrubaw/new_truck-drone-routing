@@ -43,7 +43,9 @@ def run_multi_run_benchmark(runs_per_instance=5):
             runtime = time.time() - start_time
 
             run_makespans.append(best_result["makespan"])
+            run_objectives = []
             run_runtimes.append(runtime)
+            run_objectives.append(best_result["penalized_objective"])
 
             detailed_results.append({
                 "instance": instance.name,
@@ -81,7 +83,10 @@ def run_multi_run_benchmark(runs_per_instance=5):
 
             "alpha": instance.drone_speed / instance.truck_speed,
 
-            "battery_capacity": instance.battery_capacity
+            "battery_capacity": instance.battery_capacity,
+            "best_penalized_objective": min(run_objectives),
+            "average_penalized_objective": sum(run_objectives) / len(run_objectives),
+            "std_penalized_objective": pd.Series(run_objectives).std()
         })
     summary_path = Path("results/multi_run_summary.csv")
     detailed_path = Path("results/multi_run_detailed.csv")

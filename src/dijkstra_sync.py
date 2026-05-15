@@ -4,33 +4,51 @@ from models import Solution
 from distance_matrix import compute_truck_time_matrix, compute_drone_time_matrix
 
 
-def drone_subroute_time(route, start_pos, end_pos, drone_matrix):
+def cumulative_drone_time(route, start_pos, end_pos, drone_matrix):
+    """
+    Computes cumulative drone travel time between two synchronization positions
+    along the given TSP route.
+
+    Example:
+    route = [0, 5, 2, 8, 9]
+    start_pos = 0
+    end_pos = 3
+
+    Drone path:
+    0 -> 5 -> 2 -> 8
+    """
+
     total = 0.0
 
-    for i in range(start_pos, end_pos):
-        current_node = route[i]
-        next_node = route[i + 1]
+    for pos in range(start_pos, end_pos):
+        current_node = route[pos]
+        next_node = route[pos + 1]
         total += drone_matrix[current_node][next_node]
 
     return total
 
 
-def build_solution_with_sync(instance, route):
+def build_dijkstra_graph(instance, route):
     """
-    Route üzerinden sync noktalarını seçer.
-    Mantık:
-    - Sync node = type 0
-    - Sync node arası müşteriler drone-only = type 1
-    - Truck sync noktaları arasında direkt gider
-    """
+    Builds the auxiliary Dijkstra graph described in Paper 8 Algorithm 2.
 
-    n = len(route)
+    Each position in the TSP route is treated as a node in this auxiliary graph.
+
+    Edge i -> j exists only if the drone can travel from route[i] to route[j]
+    through all intermediate nodes without exceeding battery capacity Q.
+
+    Edge cost:
+        cost(i, j) = max(truck_time(route[i], route[j]),
+                         cumulative_drone_time(route[i] ... route[j]))
+
+    Constraint:
+        cumulative_drone_time <= Q
+    """
 
     truck_matrix = compute_truck_time_matrix(instance)
     drone_matrix = compute_drone_time_matrix(instance)
 
-    battery_capacity = instance.battery_capacity
-
+    n = len(route)
     graph = {i: [] for i in range(n)}
 
     for i in range(n - 1):
@@ -38,55 +56,111 @@ def build_solution_with_sync(instance, route):
             start_node = route[i]
             end_node = route[j]
 
-            drone_time = drone_subroute_time(
+            truck_time = truck_matrix[start_node][end_node]
+
+            drone_time = cumulative_drone_time(
                 route,
                 i,
                 j,
                 drone_matrix
             )
 
-            truck_time = truck_matrix[start_node][end_node]
+            if drone_time <= instance.battery_capacity:
+                edge_cost = max(truck_time, drone_time)
+                graph[i].append((j, edge_cost))
 
-            if drone_time <= battery_capacity:
-                segment_cost = max(truck_time, drone_time)
-                graph[i].append((j, segment_cost))
+    return graph
 
-    distances = [float("inf")] * n
-    previous = [None] * n
 
-    distances[0] = 0.0
+def run_dijkstra(graph, start_pos, end_pos):
+    distances = {
+        node: float("inf")
+        for node in graph
+    }
 
-    pq = [(0.0, 0)]
+    previous = {
+        node: None
+        for node in graph
+    }
 
-    while pq:
-        current_distance, current_pos = heapq.heappop(pq)
+    distances[start_pos] = 0.0
 
-        if current_distance > distances[current_pos]:
+    priority_queue = [(0.0, start_pos)]
+
+    while priority_queue:
+        current_distance, current_node = heapq.heappop(priority_queue)
+
+        if current_node == end_pos:
+            break
+
+        if current_distance > distances[current_node]:
             continue
 
-        for next_pos, cost in graph[current_pos]:
-            new_distance = current_distance + cost
+        for neighbor, edge_cost in graph[current_node]:
+            new_distance = current_distance + edge_cost
 
-            if new_distance < distances[next_pos]:
-                distances[next_pos] = new_distance
-                previous[next_pos] = current_pos
-                heapq.heappush(pq, (new_distance, next_pos))
+            if new_distance < distances[neighbor]:
+                distances[neighbor] = new_distance
+                previous[neighbor] = current_node
+                heapq.heappush(
+                    priority_queue,
+                    (new_distance, neighbor)
+                )
 
+    return distances, previous
+
+
+def extract_sync_positions(previous, end_pos):
     sync_positions = set()
 
-    if previous[n - 1] is None:
-        # fallback: only origin and end are synchronization nodes
-        sync_positions.add(0)
-        sync_positions.add(n - 1)
+    current = end_pos
+
+    while current is not None:
+        sync_positions.add(current)
+        current = previous[current]
+
+    return sync_positions
+
+
+def build_solution_with_sync(instance, route):
+    """
+    Converts a TSP route pi_s into a synchronized truck-drone solution pi_t.
+
+    pi_s:
+        Node sequence.
+
+    pi_t:
+        Resource type sequence:
+        0 = truck + drone synchronization node
+        1 = drone-only node
+        2 = truck-only node
+
+    In this baseline construction:
+        - Synchronization nodes are selected by Dijkstra.
+        - Intermediate nodes between synchronization points are assigned to drone.
+        - Truck moves directly between synchronization nodes.
+    """
+
+    n = len(route)
+
+    graph = build_dijkstra_graph(instance, route)
+
+    distances, previous = run_dijkstra(
+        graph,
+        start_pos=0,
+        end_pos=n - 1
+    )
+
+    if distances[n - 1] == float("inf"):
+        sync_positions = {0, n - 1}
     else:
-        current = n - 1
+        sync_positions = extract_sync_positions(
+            previous,
+            end_pos=n - 1
+        )
 
-        while current is not None:
-            sync_positions.add(current)
-            current = previous[current]
-
-        sync_positions.add(0)
-        sync_positions.add(n - 1)
+    sync_positions.add(0)
+    sync_positions.add(n - 1)
 
     resource_types = []
 

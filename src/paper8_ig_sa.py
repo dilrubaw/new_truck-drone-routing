@@ -70,7 +70,7 @@ def paper8_ig_sa(
 
     current_solution = create_initial_solution(instance)
     current_result = evaluate_solution(instance, current_solution)
-    current_cost = current_result["makespan"]
+    current_cost = current_result["penalized_objective"]
 
     best_solution = current_solution
     best_result = current_result
@@ -98,7 +98,7 @@ def paper8_ig_sa(
             candidate_solution
         )
 
-        candidate_cost = candidate_result["makespan"]
+        candidate_cost = candidate_result["penalized_objective"]
 
         probability = acceptance_probability(
             current_cost,
@@ -111,7 +111,7 @@ def paper8_ig_sa(
             current_result = candidate_result
             current_cost = candidate_cost
 
-        if candidate_result["feasible"] and candidate_cost < best_cost:
+        if candidate_cost < best_cost:
             best_solution = candidate_solution
             best_result = candidate_result
             best_cost = candidate_cost
