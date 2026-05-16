@@ -1,0 +1,2 @@
+algorithm,instance,node_count,makespan,penalized_objective,feasible,battery_capacity,total_battery_violation,alpha
+Hybrid IG-SA,singlecenter-61-n20,20,1085.1319155104015,1085.1319155104015,True,258.86345445955635,0.0,0.5

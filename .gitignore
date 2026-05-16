@@ -1,2 +1,28 @@
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
 *.pyc
+
+# Virtual environment
+venv/
+.env/
+
+# macOS
+.DS_Store
+
+# VS Code / JetBrains
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# pytest
+.pytest_cache/
+
+# Generated files
+*.log
+
+# Optional large outputs
+results/*.tmp
