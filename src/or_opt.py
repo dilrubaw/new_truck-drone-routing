@@ -2,11 +2,13 @@ from two_opt import route_distance
 from distance_matrix import compute_distance_matrix
 
 
-def or_opt(route, instance, max_segment_size=3):
+def or_opt(route, instance, evaluator=None, max_segment_size=3):
     """
     Or-Opt local search.
-    1, 2 veya 3 node'luk segmentleri route içinde başka pozisyona taşır.
-    Depot ve end node sabit kalır.
+    Relocates segments of 1, 2, or 3 nodes to another position.
+    Origin and end nodes remain fixed.
+
+    evaluator parameter is optional for compatibility.
     """
 
     if len(route) <= 4:
