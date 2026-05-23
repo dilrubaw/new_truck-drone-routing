@@ -96,7 +96,6 @@ def hybrid_ig_sa(
             operator_name = "zone_based"
 
         reconstructed_route = reconstruct_route(remaining, removed)
-
         or_opt_route = or_opt(reconstructed_route, instance)
 
         candidate_route, candidate_solution, candidate_result = choose_better_solution(

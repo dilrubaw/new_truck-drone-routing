@@ -37,8 +37,14 @@ def build_solution_with_sync(instance, route):
         else:
             resource_types[i] = 0
             last_sync_index = i
-
+            
     resource_types[-1] = 0
+
+    sync_count = sum(1 for resource_type in resource_types if resource_type == 0)
+
+    if sync_count <= 2 and len(route) > 3:
+        middle_index = len(route) // 2
+        resource_types[middle_index] = 0
 
     return Solution(
         node_sequence=route,
