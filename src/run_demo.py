@@ -14,6 +14,23 @@ INSTANCE_BY_NODE_COUNT = {
 }
 
 
+def print_segment_details(result, label):
+    print(f"\n{label} segment details:")
+
+    for segment in result.get("segments", []):
+        print(
+            f"Segment {segment['segment']}: "
+            f"{segment['from_node']} -> {segment['to_node']} | "
+            f"truck_time={segment['truck_time']:.4f}, "
+            f"drone_time={segment['drone_time']:.4f}, "
+            f"duration={segment['segment_duration']:.4f}, "
+            f"battery_excess={segment['battery_excess']:.4f}"
+        )
+
+    print(f"\n{label} battery capacity: {result['battery_capacity']:.4f}")
+    print(f"{label} total battery violation: {result['total_battery_violation']:.4f}")
+
+
 def run_demo(node_count):
     if node_count not in INSTANCE_BY_NODE_COUNT:
         raise ValueError("Supported node counts: 5, 10, 20, 50")
@@ -22,9 +39,12 @@ def run_demo(node_count):
 
     print(f"Instance: {instance.name}")
     print(f"Node count: {len(instance.nodes)}")
+    print(f"Truck speed: {instance.truck_speed}")
+    print(f"Drone speed factor: {instance.drone_speed}")
+    print(f"Battery capacity: {instance.battery_capacity:.4f}")
 
-    print("\nRunning Paper 8 baseline...")
-    _, baseline_result, _ = paper8_ig_sa(
+    print("\nRunning simplified Paper-8-inspired IG-SA baseline...")
+    baseline_solution, baseline_result, _ = paper8_ig_sa(
         instance,
         max_iterations=1000,
         initial_temperature=500.0,
@@ -54,11 +74,20 @@ def run_demo(node_count):
     print(f"Baseline feasible: {baseline_result['feasible']}")
     print(f"Hybrid feasible:   {hybrid_result['feasible']}")
 
+    print("\nBaseline node sequence:")
+    print(baseline_solution.node_sequence)
+
+    print("\nBaseline resource types:")
+    print(baseline_solution.resource_types)
+
     print("\nHybrid node sequence:")
     print(hybrid_solution.node_sequence)
 
     print("\nHybrid resource types:")
     print(hybrid_solution.resource_types)
+
+    print_segment_details(baseline_result, "Baseline")
+    print_segment_details(hybrid_result, "Hybrid")
 
 
 if __name__ == "__main__":

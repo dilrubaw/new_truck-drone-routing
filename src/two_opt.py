@@ -1,37 +1,69 @@
-import numpy as np
-from models import TDTLInstance
+from distance_matrix import compute_distance_matrix
 
-def route_cost(route: list, t_T: np.ndarray) -> float:
-    """Rotanın toplam kamyon (mesafe) maliyetini hesaplar."""
-    cost = 0.0
+
+def route_distance(route, distance_matrix):
+    total = 0.0
+
     for i in range(len(route) - 1):
-        cost += t_T[route[i]][route[i+1]]
-    return cost
+        total += distance_matrix[route[i]][route[i + 1]]
 
-def run_2opt_tsp(instance: TDTLInstance) -> list:
-    """
-    Tüm düğümleri kapsayan başlangıç bir TSP rotası üretir.
-    Origin (0) ve Destination (n-1) sabit tutulur.
-    """
-    n = instance.n
-    t_T = instance.truck_time_matrix
-    
-    # Başlangıç rotası: 0 -> 1 -> 2 -> ... -> n-1
-    best_route = [instance.origin] + list(range(1, n - 1)) + [instance.destination]
+    return total
+
+
+def nearest_neighbor_route(instance):
+    distance_matrix = compute_distance_matrix(instance)
+
+    nodes = [node.id for node in instance.nodes]
+
+    start_node = nodes[0]
+    end_node = nodes[-1]
+
+    unvisited = set(nodes[1:-1])
+
+    route = [start_node]
+    current = start_node
+
+    while unvisited:
+        next_node = min(
+            unvisited,
+            key=lambda node: distance_matrix[current][node]
+        )
+
+        route.append(next_node)
+        unvisited.remove(next_node)
+        current = next_node
+
+    route.append(end_node)
+
+    return route
+
+
+def two_opt(route, distance_matrix):
+    best_route = route[:]
+    best_distance = route_distance(best_route, distance_matrix)
+
     improved = True
-    
+
     while improved:
         improved = False
+
         for i in range(1, len(best_route) - 2):
             for j in range(i + 1, len(best_route) - 1):
-                if j - i == 1: continue
-                
-                # i ve j arasındaki segmenti ters çevir
-                new_route = best_route[:]
-                new_route[i:j] = reversed(best_route[i:j])
-                
-                if route_cost(new_route, t_T) < route_cost(best_route, t_T):
+                new_route = (
+                    best_route[:i]
+                    + best_route[i:j + 1][::-1]
+                    + best_route[j + 1:]
+                )
+
+                new_distance = route_distance(new_route, distance_matrix)
+
+                if new_distance < best_distance:
                     best_route = new_route
+                    best_distance = new_distance
                     improved = True
-                    
+                    break
+
+            if improved:
+                break
+
     return best_route

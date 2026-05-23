@@ -1,109 +1,62 @@
-from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 
-def plot_makespan_comparison(df, output_dir):
-    pivot = df.set_index("instance")
+RESULTS_DIR = Path("results")
 
-    plt.figure(figsize=(10, 6))
 
-    x = range(len(pivot))
+def main():
+    RESULTS_DIR.mkdir(exist_ok=True)
 
-    plt.bar(
-        [i - 0.2 for i in x],
-        pivot["baseline_best_makespan"],
-        width=0.4,
-        label="Paper8 IG-SA"
-    )
+    summary_path = RESULTS_DIR / "multi_run_summary.csv"
 
-    plt.bar(
-        [i + 0.2 for i in x],
-        pivot["hybrid_best_makespan"],
-        width=0.4,
-        label="Hybrid IG-SA"
-    )
+    if not summary_path.exists():
+        raise FileNotFoundError("results/multi_run_summary.csv not found. Run experiment_runner.py first.")
 
-    plt.xticks(list(x), pivot.index, rotation=15)
+    summary = pd.read_csv(summary_path)
 
-    plt.ylabel("Best Makespan")
-    plt.title("Baseline vs Hybrid Makespan Comparison")
+    nodes = summary["nodes"]
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(nodes, summary["avg_baseline_makespan"], marker="o", label="Baseline")
+    plt.plot(nodes, summary["avg_hybrid_makespan"], marker="o", label="Hybrid")
+    plt.xlabel("Node Count")
+    plt.ylabel("Makespan")
+    plt.title("Hybrid vs Baseline Makespan")
     plt.legend()
-
+    plt.grid(True)
     plt.tight_layout()
+    plt.savefig(RESULTS_DIR / "hybrid_vs_baseline_makespan.png", dpi=200)
+    plt.close()
 
-    path = output_dir / "hybrid_vs_baseline_makespan.png"
-
-    plt.savefig(path)
-
-    print(f"Saved: {path}")
-
-
-def plot_runtime_comparison(df, output_dir):
-    pivot = df.set_index("instance")
-
-    plt.figure(figsize=(10, 6))
-
-    x = range(len(pivot))
-
-    plt.bar(
-        [i - 0.2 for i in x],
-        pivot["baseline_avg_runtime_sec"],
-        width=0.4,
-        label="Paper8 IG-SA"
-    )
-
-    plt.bar(
-        [i + 0.2 for i in x],
-        pivot["hybrid_avg_runtime_sec"],
-        width=0.4,
-        label="Hybrid IG-SA"
-    )
-
-    plt.xticks(list(x), pivot.index, rotation=15)
-
-    plt.ylabel("Average Runtime (sec)")
-    plt.title("Baseline vs Hybrid Runtime Comparison")
-    plt.legend()
-
-    plt.tight_layout()
-
-    path = output_dir / "hybrid_vs_baseline_runtime.png"
-
-    plt.savefig(path)
-
-    print(f"Saved: {path}")
-
-
-def plot_improvement(df, output_dir):
-    plt.figure(figsize=(10, 6))
-
-    plt.bar(
-        df["instance"],
-        df["improvement_percent"]
-    )
-
+    plt.figure(figsize=(8, 5))
+    plt.plot(nodes, summary["avg_improvement_percent"], marker="o")
+    plt.xlabel("Node Count")
     plt.ylabel("Improvement (%)")
-    plt.title("Hybrid Improvement Over Baseline")
-
-    plt.xticks(rotation=15)
-
+    plt.title("Hybrid Improvement Percentage")
+    plt.grid(True)
     plt.tight_layout()
+    plt.savefig(RESULTS_DIR / "hybrid_improvement_percent.png", dpi=200)
+    plt.close()
 
-    path = output_dir / "hybrid_improvement_percent.png"
+    plt.figure(figsize=(8, 5))
+    plt.plot(nodes, summary["avg_baseline_runtime"], marker="o", label="Baseline")
+    plt.plot(nodes, summary["avg_hybrid_runtime"], marker="o", label="Hybrid")
+    plt.xlabel("Node Count")
+    plt.ylabel("Runtime (seconds)")
+    plt.title("Runtime Comparison")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(RESULTS_DIR / "hybrid_vs_baseline_runtime.png", dpi=200)
+    plt.close()
 
-    plt.savefig(path)
-
-    print(f"Saved: {path}")
+    print("Generated:")
+    print(RESULTS_DIR / "hybrid_vs_baseline_makespan.png")
+    print(RESULTS_DIR / "hybrid_improvement_percent.png")
+    print(RESULTS_DIR / "hybrid_vs_baseline_runtime.png")
 
 
 if __name__ == "__main__":
-    results_path = Path("results/hybrid_vs_baseline_comparison.csv")
-
-    df = pd.read_csv(results_path)
-
-    output_dir = Path("results")
-
-    plot_makespan_comparison(df, output_dir)
-    plot_runtime_comparison(df, output_dir)
-    plot_improvement(df, output_dir)
+    main()

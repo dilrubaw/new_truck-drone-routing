@@ -45,11 +45,17 @@ def build_paths_from_solution(solution):
                 truck_path.append(node)
                 drone_path.append(node)
 
-        truck_path.append(segment_nodes[-1])
-        drone_path.append(segment_nodes[-1])
-
+                truck_path.append(segment_nodes[-1])
         truck_paths.append(truck_path)
-        drone_paths.append(drone_path)
+
+        has_drone_flight = any(
+            resource_type == 1
+            for resource_type in segment_types[1:-1]
+        )
+
+        if has_drone_flight:
+            drone_path.append(segment_nodes[-1])
+            drone_paths.append(drone_path)
 
     return truck_paths, drone_paths
 

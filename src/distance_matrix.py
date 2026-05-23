@@ -1,35 +1,51 @@
-import numpy as np
-from models import TDTLInstance
+import math
 
-def calculate_tdtl_matrices(instance: TDTLInstance) -> TDTLInstance:
-    """
-    Düğümler arasındaki Euclidean mesafeleri hesaplar, kamyon ve drone süre matrislerini oluşturur.
-    Makale kuralı: 
-    - t_ij^T = Euclidean_Distance(i, j)
-    - t_ij^D = t_ij^T / alpha
-    """
-    n = instance.n
-    truck_matrix = np.zeros((n, n))
-    drone_matrix = np.zeros((n, n))
-    
-    for i in range(n):
-        for j in range(n):
-            if i == j:
-                truck_matrix[i][j] = 0.0
-                drone_matrix[i][j] = 0.0
-            else:
-                # Euclidean mesafesi hesaplama
-                coord_i = instance.nodes[i]
-                coord_j = instance.nodes[j]
-                distance = np.sqrt(np.sum((coord_i - coord_j) ** 2))
-                
-                # Kamyon süresi direkt mesafeye eşittir (v_T = 1 kabul edilir)
-                truck_matrix[i][j] = distance
-                
-                # Drone süresi kamyon süresinin alpha oranına bölünmesidir (t^D = t^T / alpha)
-                drone_matrix[i][j] = distance / instance.alpha
-                
-    instance.truck_time_matrix = truck_matrix
-    instance.drone_time_matrix = drone_matrix
-    
-    return instance
+
+def euclidean_distance(node_a, node_b):
+    dx = node_a.x - node_b.x
+    dy = node_a.y - node_b.y
+
+    return math.sqrt(dx ** 2 + dy ** 2)
+
+
+def compute_distance_matrix(instance):
+    node_count = len(instance.nodes)
+
+    matrix = [
+        [0.0 for _ in range(node_count)]
+        for _ in range(node_count)
+    ]
+
+    for i in range(node_count):
+        for j in range(node_count):
+            if i != j:
+                matrix[i][j] = euclidean_distance(
+                    instance.nodes[i],
+                    instance.nodes[j]
+                )
+
+    return matrix
+
+
+def compute_truck_time_matrix(instance):
+    distance_matrix = compute_distance_matrix(instance)
+
+    return [
+        [
+            distance / instance.truck_speed
+            for distance in row
+        ]
+        for row in distance_matrix
+    ]
+
+
+def compute_drone_time_matrix(instance):
+    distance_matrix = compute_distance_matrix(instance)
+
+    return [
+        [
+            distance * instance.drone_speed
+            for distance in row
+        ]
+        for row in distance_matrix
+    ]

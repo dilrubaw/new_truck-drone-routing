@@ -85,7 +85,7 @@ def calculate_battery_capacity(nodes, drone_speed: float) -> float:
 
                 distance = (dx ** 2 + dy ** 2) ** 0.5
 
-                travel_time = distance / drone_speed
+                travel_time = distance * drone_speed
 
                 total_time += travel_time
                 count += 1

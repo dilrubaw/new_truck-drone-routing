@@ -3,9 +3,10 @@ import math
 import time
 
 from initial_solution import create_initial_solution
-from dijkstra_sync import build_solution_with_sync
+from greedy_sync_builder import build_solution_with_sync
 from evaluator import evaluate_solution
 from or_opt import or_opt
+from paper8_ig_sa import paper8_ig_sa
 
 from adaptive_destruction import (
     random_destruction,
@@ -19,6 +20,19 @@ from adaptive_destruction import (
 from adaptive_cooling import adaptive_cooling
 
 
+def choose_better_solution(instance, route_a, route_b):
+    solution_a = build_solution_with_sync(instance, route_a)
+    result_a = evaluate_solution(instance, solution_a)
+
+    solution_b = build_solution_with_sync(instance, route_b)
+    result_b = evaluate_solution(instance, solution_b)
+
+    if result_b["penalized_objective"] < result_a["penalized_objective"]:
+        return route_b, solution_b, result_b
+
+    return route_a, solution_a, result_a
+
+
 def hybrid_ig_sa(
     instance,
     max_iterations=2000,
@@ -29,8 +43,24 @@ def hybrid_ig_sa(
 ):
     start_time = time.time()
 
-    current_solution = create_initial_solution(instance)
-    current_result = evaluate_solution(instance, current_solution)
+    baseline_solution, baseline_result, _ = paper8_ig_sa(
+        instance,
+        max_iterations=1000,
+        initial_temperature=500.0,
+        cooling_rate=0.995,
+        time_limit_seconds=min(30, time_limit_seconds)
+    )
+
+    initial_solution = create_initial_solution(instance)
+    initial_result = evaluate_solution(instance, initial_solution)
+
+    if baseline_result["penalized_objective"] <= initial_result["penalized_objective"]:
+        current_solution = baseline_solution
+        current_result = baseline_result
+    else:
+        current_solution = initial_solution
+        current_result = initial_result
+
     current_cost = current_result["penalized_objective"]
 
     best_solution = current_solution
@@ -65,13 +95,17 @@ def hybrid_ig_sa(
             remaining, removed = zone_based_destruction(route, instance)
             operator_name = "zone_based"
 
-        candidate_route = reconstruct_route(remaining, removed)
-        candidate_route = or_opt(candidate_route, instance)
+        reconstructed_route = reconstruct_route(remaining, removed)
 
-        candidate_solution = build_solution_with_sync(instance, candidate_route)
-        candidate_result = evaluate_solution(instance, candidate_solution)
+        or_opt_route = or_opt(reconstructed_route, instance)
+
+        candidate_route, candidate_solution, candidate_result = choose_better_solution(
+            instance,
+            reconstructed_route,
+            or_opt_route
+        )
+
         candidate_cost = candidate_result["penalized_objective"]
-
         delta = candidate_cost - current_cost
 
         accepted = False
