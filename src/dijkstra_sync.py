@@ -1,176 +1,68 @@
 import heapq
+import numpy as np
+from models import TDTLInstance
 
-from models import Solution
-from distance_matrix import compute_truck_time_matrix, compute_drone_time_matrix
-
-
-def cumulative_drone_time(route, start_pos, end_pos, drone_matrix):
+def build_sync_graph(tsp_route: list, instance: TDTLInstance):
     """
-    Computes cumulative drone travel time between two synchronization positions
-    along the given TSP route.
-
-    Example:
-    route = [0, 5, 2, 8, 9]
-    start_pos = 0
-    end_pos = 3
-
-    Drone path:
-    0 -> 5 -> 2 -> 8
+    Makale Algoritma 2 (Set A' construction):
+    Düğüm çiftleri arasında batarya sınırına uyan senkronizasyon yaylarını kurar.
     """
-
-    total = 0.0
-
-    for pos in range(start_pos, end_pos):
-        current_node = route[pos]
-        next_node = route[pos + 1]
-        total += drone_matrix[current_node][next_node]
-
-    return total
-
-
-def build_dijkstra_graph(instance, route):
-    """
-    Builds the auxiliary Dijkstra graph described in Paper 8 Algorithm 2.
-
-    Each position in the TSP route is treated as a node in this auxiliary graph.
-
-    Edge i -> j exists only if the drone can travel from route[i] to route[j]
-    through all intermediate nodes without exceeding battery capacity Q.
-
-    Edge cost:
-        cost(i, j) = max(truck_time(route[i], route[j]),
-                         cumulative_drone_time(route[i] ... route[j]))
-
-    Constraint:
-        cumulative_drone_time <= Q
-    """
-
-    truck_matrix = compute_truck_time_matrix(instance)
-    drone_matrix = compute_drone_time_matrix(instance)
-
-    n = len(route)
-    graph = {i: [] for i in range(n)}
-
-    for i in range(n - 1):
-        for j in range(i + 1, n):
-            start_node = route[i]
-            end_node = route[j]
-
-            truck_time = truck_matrix[start_node][end_node]
-
-            drone_time = cumulative_drone_time(
-                route,
-                i,
-                j,
-                drone_matrix
-            )
-
-            if drone_time <= instance.battery_capacity:
+    n = instance.n
+    t_T = instance.truck_time_matrix
+    t_D = instance.drone_time_matrix
+    Q = instance.Q
+    
+    # G' grafı: adj_list[i] = [(komşu_j, kenar_maliyeti), ...]
+    adj_list = {i: [] for i in tsp_route}
+    
+    # Rota üzerindeki tüm i ve j çiftlerini kontrol et (i < j)
+    for i_idx in range(len(tsp_route) - 1):
+        for j_idx in range(i_idx + 1, len(tsp_route)):
+            i = tsp_route[i_idx]
+            j = tsp_route[j_idx]
+            
+            # Kamyonun i'den j'ye direkt gitme süresi
+            truck_time = t_T[i][j]
+            
+            # Drone'un TSP rotası üzerindeki i ve j arasındaki düğümleri gezme süresi
+            drone_time = 0.0
+            current = i
+            for k_idx in range(i_idx + 1, j_idx + 1):
+                next_node = tsp_route[k_idx]
+                drone_time += t_D[current][next_node]
+                current = next_node
+                
+            # Eğer drone'un bu alt rotayı tamamlamaya bataryası yetiyorsa arka izin ver var
+            if drone_time <= Q:
+                # PARALEL HAREKET: Geçiş süresi ikisinin maksimumudur
                 edge_cost = max(truck_time, drone_time)
-                graph[i].append((j, edge_cost))
+                adj_list[i].append((j, edge_cost))
+            else:
+                # Batarya yetmiyorsa, j_idx daha da büyüdükçe süre artacağından döngüden çıkılabilir
+                break
+                
+    return adj_list
 
-    return graph
-
-
-def run_dijkstra(graph, start_pos, end_pos):
-    distances = {
-        node: float("inf")
-        for node in graph
-    }
-
-    previous = {
-        node: None
-        for node in graph
-    }
-
-    distances[start_pos] = 0.0
-
-    priority_queue = [(0.0, start_pos)]
-
-    while priority_queue:
-        current_distance, current_node = heapq.heappop(priority_queue)
-
-        if current_node == end_pos:
-            break
-
-        if current_distance > distances[current_node]:
+def run_dijkstra(adj_list: dict, start: int, end: int):
+    """En kısa senkronizasyon yolunu ve atılan adımları bulur."""
+    queue = [(0.0, start, [start])]
+    distances = {node: float('inf') for node in adj_list}
+    distances[start] = 0.0
+    
+    while queue:
+        (cost, current, path) = heapq.heappop(queue)
+        
+        if current == end:
+            return cost, path
+            
+        if cost > distances[current]:
             continue
-
-        for neighbor, edge_cost in graph[current_node]:
-            new_distance = current_distance + edge_cost
-
-            if new_distance < distances[neighbor]:
-                distances[neighbor] = new_distance
-                previous[neighbor] = current_node
-                heapq.heappush(
-                    priority_queue,
-                    (new_distance, neighbor)
-                )
-
-    return distances, previous
-
-
-def extract_sync_positions(previous, end_pos):
-    sync_positions = set()
-
-    current = end_pos
-
-    while current is not None:
-        sync_positions.add(current)
-        current = previous[current]
-
-    return sync_positions
-
-
-def build_solution_with_sync(instance, route):
-    """
-    Converts a TSP route pi_s into a synchronized truck-drone solution pi_t.
-
-    pi_s:
-        Node sequence.
-
-    pi_t:
-        Resource type sequence:
-        0 = truck + drone synchronization node
-        1 = drone-only node
-        2 = truck-only node
-
-    In this baseline construction:
-        - Synchronization nodes are selected by Dijkstra.
-        - Intermediate nodes between synchronization points are assigned to drone.
-        - Truck moves directly between synchronization nodes.
-    """
-
-    n = len(route)
-
-    graph = build_dijkstra_graph(instance, route)
-
-    distances, previous = run_dijkstra(
-        graph,
-        start_pos=0,
-        end_pos=n - 1
-    )
-
-    if distances[n - 1] == float("inf"):
-        sync_positions = {0, n - 1}
-    else:
-        sync_positions = extract_sync_positions(
-            previous,
-            end_pos=n - 1
-        )
-
-    sync_positions.add(0)
-    sync_positions.add(n - 1)
-
-    resource_types = []
-
-    for pos in range(n):
-        if pos in sync_positions:
-            resource_types.append(0)
-        else:
-            resource_types.append(1)
-
-    return Solution(
-        node_sequence=route,
-        resource_types=resource_types
-    )
+            
+        for neighbor, edge_cost in adj_list[current]:
+            old_cost = distances[neighbor]
+            new_cost = cost + edge_cost
+            if new_cost < old_cost:
+                distances[neighbor] = new_cost
+                heapq.heappush(queue, (new_cost, neighbor, path + [neighbor]))
+                
+    return float('inf'), []
